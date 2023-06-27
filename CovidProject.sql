@@ -1,79 +1,88 @@
--- ovrview the data Death 
+
 USE ProjectCovid;
 
-SELECT * FROM Death
+-- Ovrview the data Death 
+SELECT 
+	*
+FROM Death
 ORDER BY location, date;
 
 -- Which continents in tha date?
-SELECT DISTINCT continent FROM Death;
+SELECT 
+	DISTINCT continent 
+FROM Death;
 
 -- Data contain NULL values, check data
-SELECT * FROM Death
+SELECT 
+	*
+FROM Death
 WHERE continent IS NULL;
 
 -- Which location in the data?
-SELECT DISTINCT location FROM Death
+SELECT 
+	DISTINCT location 
+FROM Death
 WHERE continent IS NOT NULL
 ORDER BY location;
 
-
--- SELECT THE CONTINENT WITH SUM DEATH
-SELECT *, ROUND((total_deaths / total_cases) * 100, 2) AS die_probability FROM 
-	(SELECT continent, MAX(CONVERT(int, Death.total_deaths)) as total_deaths, SUM(new_cases) as total_cases FROM Death
+-- How much death by Covid19 in each continent? Get percent death vs total cases (Covid19)
+SELECT 
+	*,
+	ROUND((TotalDeaths / TotalCases) * 100, 2) AS DiePercent
+FROM 
+	(SELECT 
+		continent, 
+		MAX(CONVERT(int, Death.total_deaths)) as TotalDeaths, 
+		SUM(new_cases) as TotalCases
+	FROM Death
 	WHERE continent IS NOT null
 	GROUP BY continent) AS calculate
-ORDER BY continent, total_cases;
+ORDER BY continent, TotalCases;
 
 
-
--- GET PERCENTAGE OF THE POPULATION GOT ILL AS A RESULT OF COVID19
-SELECT *, ROUND((total_cases / population) * 100, 2) as case_percente FROM 
-	(SELECT location, COALESCE(SUM(new_cases), 0) as total_cases, AVG(population) as population FROM Death
+-- Get percentage of the population got ill, died as a result Covid19 for each location(country)
+SELECT 
+	*, 
+	ROUND((TotalCases / population) * 100, 2) as CasePercente,
+	ROUND((TotalDeaths / population) * 100, 2) as DeathPercente
+	FROM 
+	(SELECT 
+		location, 
+		AVG(population) as population,
+		COALESCE(SUM(new_cases), 0) as TotalCases, 
+		COALESCE(MAX(CONVERT(int, total_deaths)), 0) as TotalDeaths
+		FROM Death
 	WHERE continent IS NOT NULL
 	GROUP BY location) as info
-ORDER BY case_percente DESC;
+ORDER BY CasePercente DESC, DeathPercente DESC, location;
 
 
--- GET PERCENTAGE OF THE POPULATION DIED AS A RESULT OF COVID19
-SELECT *, ROUND((total_deaths / population) * 100, 2) as death_percente FROM 
-	(SELECT location, COALESCE(MAX(CONVERT(int, total_deaths)), 0) as total_deaths, AVG(population) as population FROM Death
-	WHERE continent IS NOT NULL
-	GROUP BY location) as info
-ORDER BY death_percente DESC, location;
-
--- GET location, PERCENT DEATH FROM TOTAL CASES WITH COVID19
+-- Get info DeathPercent vs TotalCases
 SELECT * FROM (
-	SELECT location, 
-		SUM(new_cases) as total_cases, 
-		MAX(CONVERT(int, Death.total_deaths)) as total_deaths, ROUND((MAX(CONVERT(int, Death.total_deaths)) / SUM(new_cases)) * 100, 2) as death_percent  
+	SELECT 
+		location, 
+		SUM(new_cases) as TotalCases, 
+		MAX(CONVERT(int, Death.total_deaths)) as TotalDeaths, 
+		ROUND((MAX(CONVERT(int, Death.total_deaths)) / SUM(new_cases)) * 100, 2) as DeathPercent  
 		FROM Death
 	WHERE continent IS NOT NULL 
 	GROUP BY location) AS loc
-WHERE total_cases IS NOT NULL
-	AND total_deaths IS NOT NULL
-ORDER BY total_deaths DESC, death_percent DESC, location;
-
-
--- GET continent, PERCENT DEATH PER TOTAL CASES WITH COVID19
-SELECT * FROM (
-	SELECT continent, 
-		SUM(new_cases) as total_cases, 
-		MAX(CONVERT(int, Death.total_deaths)) as total_deaths, ROUND((MAX(CONVERT(int, Death.total_deaths)) / SUM(new_cases)) * 100, 2) as death_percent  
-		FROM Death
-	WHERE continent IS NOT NULL 
-	GROUP BY continent) AS loc
-WHERE total_cases IS NOT NULL
-	AND total_deaths IS NOT NULL
-ORDER BY total_deaths DESC, death_percent DESC, continent;
+WHERE TotalCases IS NOT NULL
+	AND TotalDeaths IS NOT NULL
+ORDER BY TotalDeaths DESC, DeathPercent DESC, location;
 
 
 -- GLOBAL INFO BY DATE 
-SELECT *, 
+SELECT 
+	*, 
 	CASE 
 	WHEN TotalCase = 0 THEN 0
 	ELSE (ROUND((TotalDeath/ NULLIF(TotalCase, 0)) * 100, 2)) 
-	END AS DeathPercent FROM
-		(SELECT date, COALESCE(SUM(new_cases), 0) AS TotalCase, 
+	END AS DeathPercent 
+	FROM
+		(SELECT 
+			date, 
+			COALESCE(SUM(new_cases), 0) AS TotalCase, 
 			COALESCE(SUM(new_deaths), 0) AS TotalDeath
 		FROM Death
 		WHERE continent IS NOT NULL
@@ -86,46 +95,57 @@ SELECT *,
 	WHEN TotalCase = 0 THEN 0
 	ELSE (ROUND((TotalDeath/ NULLIF(TotalCase, 0)) * 100, 2)) 
 	END AS DeathPercent FROM
-		(SELECT COALESCE(SUM(new_cases), 0) AS TotalCase, 
+		(SELECT 
+			COALESCE(SUM(new_cases), 0) AS TotalCase, 
 			COALESCE(SUM(new_deaths), 0) AS TotalDeath
 		FROM Death
 		WHERE continent IS NOT NULL) AS sub;
 
--- SHOWING CONTINENTS WITH HIGHEST DEATH COUNT PER POPULATION
 
-
--- GET INFORMATION ABOUT GOT ILL BY MONTH/country
-SELECT location, COALESCE(SUM(new_cases), 0) as new_cases_per_months, YEAR(date) AS year, MONTH(date) as month
+-- Get information about got ill by month/year for countries
+SELECT 
+	location, 
+	YEAR(date) AS year, 
+	MONTH(date) as month,
+	COALESCE(SUM(new_cases), 0) as NewCasesPerMonths
 FROM Death
 WHERE continent IS NOT NULL
 GROUP BY location, YEAR(date), MONTH(date)
 ORDER BY location,  year, month;
 
--- GET INFORMATION ABOUT GOT ILL BY MONTH
-SELECT MONTH(date) as month, COALESCE(SUM(new_cases), 0) as TotalCasesMonth
+-- Get information sum got ill by month
+SELECT 
+	MONTH(date) as month, 
+	COALESCE(SUM(new_cases), 0) as TotalCasesMonth
 FROM Death
 WHERE continent IS NOT NULL
 GROUP BY MONTH(date)
-ORDER BY TotalCasesMonth DESC, month;
+ORDER BY month, TotalCasesMonth DESC;
 
--- GET ILL STATISTICS INFO ABOUT EACH COUNTRY
+-- Statistic info for each country
 SELECT location, 
-	ROUND(AVG(new_cases_per_months), 2) as avg_cases, 
-	MIN(new_cases_per_months) as min_per_month, 
-	MAX(new_cases_per_months) as max_per_month 
+	ROUND(AVG(new_cases_per_months), 2) as AvgCases, 
+	MIN(new_cases_per_months) as MinPerMonth, 
+	MAX(new_cases_per_months) as MaxPerMonth 
 	FROM 
-		(SELECT location, COALESCE(SUM(new_cases), 0) as new_cases_per_months, YEAR(date) AS year, MONTH(date) as month
+		(SELECT 
+			location, 
+			COALESCE(SUM(new_cases), 0) as new_cases_per_months, 
+			YEAR(date) AS year, 
+			MONTH(date) as month
 			FROM Death
 			WHERE continent IS NOT NULL
 			GROUP BY location, YEAR(date), MONTH(date)) as sum_info
 GROUP BY location
-ORDER BY max_per_month DESC, location;
+ORDER BY MaxPerMonth DESC, location;
 
--- Get month where max cases in country
-WITH total_cases AS (
+-- Get month with max cases in countries
+WITH TotalCases AS (
     SELECT
-        location, YEAR(date) AS year,
-        MONTH(date) AS month, COALESCE(SUM(new_cases), 0) AS new_cases_per_month
+        location, 
+		YEAR(date) AS year,
+        MONTH(date) AS month, 
+		COALESCE(SUM(new_cases), 0) AS NewCasesPerMonths
     FROM
         Death
     WHERE
@@ -135,30 +155,29 @@ WITH total_cases AS (
 stats AS (
     SELECT
         location,
-        ROUND(AVG(new_cases_per_month), 2) AS avg_cases,
-        MIN(new_cases_per_month) AS min_per_month,
-        MAX(new_cases_per_month) AS max_per_month,
-        ROW_NUMBER() OVER (PARTITION BY location ORDER BY MAX(new_cases_per_month) DESC) AS rn
+        ROUND(AVG(NewCasesPerMonths), 2) AS avg_cases,
+        MIN(NewCasesPerMonths) AS min_per_month,
+        MAX(NewCasesPerMonths) AS max_per_month,
+        ROW_NUMBER() OVER (PARTITION BY location ORDER BY MAX(NewCasesPerMonths) DESC) AS rn
     FROM
-        total_cases
+        TotalCases
     GROUP BY location
-    HAVING AVG(new_cases_per_month) <> 0
+    HAVING AVG(NewCasesPerMonths) <> 0
 )
 SELECT
-    total_cases.location,
-    total_cases.month AS month,
-	total_cases.year AS year,
+    TotalCases.location,
+    TotalCases.month AS month,
+	TotalCases.year AS year,
     stats.max_per_month AS TotalCases
-FROM
-    total_cases
+FROM TotalCases
 JOIN
-    stats ON total_cases.location = stats.location AND total_cases.new_cases_per_month = stats.max_per_month
-WHERE
-    stats.rn = 1
-ORDER BY
-    TotalCases DESC, month, year, location;
+    stats ON TotalCases.location = stats.location 
+	AND TotalCases.NewCasesPerMonths = stats.max_per_month
+WHERE stats.rn = 1
+ORDER BY location;
 
--- Join tables
+
+-- Join tables Death/Vaccination
 -- CREATE VIEW ShortInfo AS 
 SELECT 
 	dea.continent, dea.location, dea.population, dea.date, dea.new_cases, dea.new_deaths, COALESCE(vac.new_vaccinations, 0) AS NewVaccinations
@@ -169,7 +188,7 @@ AND dea.date = vac.date
 WHERE dea.continent IS NOT NULL;
 
 
-
+-- Calculate total vaccinations for each country, percent vaccinations day by day
 WITH PopVac (continent, location, population, date, new_cases, new_deaths, NewVaccinations, TotalVaccinations) AS
 (
 SELECT 
@@ -188,6 +207,7 @@ SELECT
 	ROUND((TotalVaccinations/population) * 100, 2) AS VacPercent 
 FROM PopVac;
 
+-- Create temp table for quick way getting the data
 CREATE TABLE #VacShortResult
 	(continent nvarchar(255),
 	location nvarchar(255),
@@ -211,12 +231,28 @@ ON dea.location = vac.location
 AND dea.date = vac.date
 WHERE dea.continent IS NOT NULL;
 
-
-SELECT location, COALESCE(ROUND(MAX(VacPercent), 2), 0) AS VacPercent FROM 
-(SELECT
-	*,
-	ROUND((TotalVaccinations/population) * 100, 2) AS VacPercent  
-FROM #VacShortResult) as sub
+-- Get the total result vaccinations
+SELECT 
+	location, 
+	COALESCE(ROUND(MAX(VacPercent), 2), 0) AS VacPercent 
+	FROM 
+	(SELECT
+		*,
+		ROUND((TotalVaccinations/population) * 100, 2) AS VacPercent  
+	FROM #VacShortResult) as sub
 GROUP BY location
-ORDER BY VacPercent DESC;
+ORDER BY location;
 
+-- Create view for bi 
+CREATE VIEW PercentPopulationVaccinated AS
+SELECT 
+	dea.continent, dea.location, 
+	dea.population, dea.date, 
+	dea.new_cases, dea.new_deaths, 
+	COALESCE(vac.new_vaccinations, 0) AS NewVaccinations,
+	SUM(CAST(vac.new_vaccinations AS bigint)) OVER (PARTITION BY dea.location ORDER BY dea.date) as TotalVaccinations
+FROM Death as dea
+	JOIN Vaccinations as vac
+ON dea.location = vac.location
+AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL;
