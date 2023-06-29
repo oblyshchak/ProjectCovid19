@@ -25,6 +25,17 @@ FROM Death
 WHERE continent IS NOT NULL
 ORDER BY location;
 
+
+-- How much death by Covid19? Get percent death vs total cases (Covid19)
+SELECT *, 
+	ROUND((TotalDeath / TotalCases)*100, 2) AS DeathPercent
+	FROM (
+	SELECT 
+		SUM(new_cases) as TotalCases,
+		SUM(new_deaths) as TotalDeath
+		FROM Death) AS sub;
+
+
 -- How much death by Covid19 in each continent? Get percent death vs total cases (Covid19)
 SELECT 
 	*,
@@ -71,6 +82,17 @@ WHERE TotalCases IS NOT NULL
 	AND TotalDeaths IS NOT NULL
 ORDER BY TotalDeaths DESC, DeathPercent DESC, location;
 
+
+-- Get rolling cases day by day for each country
+SELECT 
+	continent, 
+	location, 
+	population, 
+	date, 
+	new_cases,
+	SUM(CAST(new_cases AS bigint)) OVER (PARTITION BY location ORDER BY date) as TotalCases
+FROM Death 
+ORDER BY location, date;
 
 -- GLOBAL INFO BY DATE 
 SELECT 
@@ -243,6 +265,18 @@ SELECT
 GROUP BY location
 ORDER BY location;
 
+
+SELECT *, ROUND((TotalVaccinated/population) * 100, 2) AS PercentVac FROM
+(SELECT 
+	continent,
+	SUM(DISTINCT population) as population,
+	SUM(NewVaccinations) as TotalVaccinated 
+FROM #VacShortResult
+WHERE continent IS NOT NULL
+GROUP BY continent) AS sub
+ORDER BY continent;
+
+
 -- Create view for bi 
 CREATE VIEW PercentPopulationVaccinated AS
 SELECT 
@@ -256,3 +290,5 @@ FROM Death as dea
 ON dea.location = vac.location
 AND dea.date = vac.date
 WHERE dea.continent IS NOT NULL;
+
+SELECT * FROM PercentPopulationVaccinated;
